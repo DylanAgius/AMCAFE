@@ -28,6 +28,8 @@ TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
   bmDX = {DelT*bmV,_xyz->bhatch,_xyz->layerT}; // (SD, TD, BD) per layer
   offset=_xyz->offset;
   ispvec.assign(_xyz->NpT,0);
+	
+  //It is here that the addtional patterns must be added.
   if (patternID==1 || patternID==3){
     std::iota(ispvec.begin(),ispvec.end(),0);
   } // if (patternID==1...
@@ -45,6 +47,7 @@ TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
       } // else (fmod(j,2)==0...
     } // for (int j=0...
   } // if (patternID==2...
+ ////// Location of additional patterns
 } // end TempField
 
 void TempField::InitializeAnalytic()
