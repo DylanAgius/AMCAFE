@@ -10,6 +10,7 @@
 #include "numeric"
 #include <algorithm>
 #include "mpi.h"
+#include <ctime>
 
 // constructor
 TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
@@ -47,6 +48,13 @@ TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
       } // else (fmod(j,2)==0...
     } // for (int j=0...
   } // if (patternID==2...
+
+ // Pattern 5 is now a random selection
+if (patternID==5){
+ std::srand(unsigned(std::time(0)));
+ std::iota(ispvec.begin(),ispvec.end(),0);
+ std::random_shuffle(ispvec.begin(),ispvec.end());
+}//if pattterID==5
  ////// Location of additional patterns
 } // end TempField
 
