@@ -55,6 +55,11 @@ if (patternID==5){
  std::iota(ispvec.begin(),ispvec.end(),0);
  std::random_shuffle(ispvec.begin(),ispvec.end());
 }//if pattterID==5
+
+ // Pattern 6 is now the Dehoff filling method
+ if (patternID==6){
+	 
+ } // if patternID==6
  ////// Location of additional patterns
 } // end TempField
 
