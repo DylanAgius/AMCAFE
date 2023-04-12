@@ -58,7 +58,137 @@ if (patternID==5){
 
  // Pattern 6 is now the Dehoff filling method
  if (patternID==6){
-	 
+    // Initialise values single values
+    int lines = 7; // this will have be user defined
+    int skip = 11; //this will have be user defined
+    int intv=skip; 
+    int init=0;
+    int extraval2=0;
+    int start=0;
+    int start2=1;
+    int ispvsum=0;
+
+    // Initialise vectors
+    vector<vector<int> > ispvecc(_xyz->Ntd,vector<int>(_xyz->Nsd));
+    vector<vector<int> > ispvecn(_xyz->Ntd,vector<int>(_xyz->Nsd));
+    vector<int> test;
+
+    // Calculate the total sum expected in the ispvec array
+    // This is used to control the while loop
+    for (int v=0; v<_xyz->Nsd; ++v){
+        ispvsum += v;
+     }
+    // Outside loop which iterates across the expected number of laser passes
+    for (int j=0; j<_xyz->Ntd; j++){
+         // Need to update loop values since these are used within the while and for loops below
+	 int check=0;
+ 	 int check2=0;
+	 int extraval2=0;
+	 int sum=0;
+	 int size=_xyz->Nsd;
+	 int totalv=0;
+	 int totalv2=0;
+   
+	 while(sum <= ispvsum-_xyz->Nsd){
+	      for (int i=j; i<_xyz->Ntd; i+=lines){
+	          if (i%2==0){
+	             vector<int> test;
+		     // define indeces of the first pass
+		     for (int k = init; k < _xyz->Nsd; k += skip) {
+                        test.push_back(k);
+			totalv +=1;  // this is used to define the size of the array that is formed
+			} // for int k
+			if (start==0){
+			    if (totalv< int(_xyz->Nsd/skip)){
+				check2=1;
+				//This adds an extra few points which is based on the location selection being larger the final pass value and the indeces 
+				// selection restarts
+				test.push_back(extraval2);
+			    } //if totalv
+			 } // if start
+			 // if start is not zero (this is used to determine if the pass starts from zero or at the 'skip' location
+			 else {
+			     if ((totalv<(_xyz->Nsd/skip)) || (totalv<totalv2)){
+				check2=1;
+				test.push_back(extraval2);
+			      }//if totalv
+			  }//else 
+			  //adds to the vector which defines the passes along the beam length
+			  ispvecc[i].insert(ispvecc[i].end(),test.begin(),test.end());
+	                  totalv2=0; // updates the total value to be used again in the next pass
+			  //update array to remove leading 0s
+			  for (int del=0; del<_xyz->Nsd;del++){
+			      ispvecn[i][del]=ispvecc[i][_xyz->Nsd+del];
+			   }
+		    }//if i%2
+		    //These are the odd value lines which must also alternate from starting from zero to the "skip" value
+	            else {
+			vector<int> test;
+			for (int x=intv; x<_xyz->Nsd; x += skip){
+			    test.push_back(x);
+			    totalv2 += 1;
+			 }//for  int x=intv
+			 if (start2==0){
+                            if (totalv2<(_xyz->Nsd/skip)){
+			       check2=1;
+			       test.push_back(extraval2);
+			     } //if totalv2
+		          } // if start2=0
+			  else {
+                             if ((totalv2< (_xyz->Nsd/skip)) || (totalv2 <totalv)){
+				check2=1;
+				// Add the extra value if the pass is larger than the are area.
+				test.push_back(extraval2);
+			      } //if totalv2 ||
+			   } //else
+			   //adds to the vector which defines the passes along the beam length
+			   ispvecc[i].insert(ispvecc[i].end(),test.begin(),test.end());
+			   totalv=0;
+			   //update array to remove leading 0s
+			   for (int del=0; del<_xyz->Nsd;del++){
+			       ispvecn[i][del]=ispvecc[i][_xyz->Nsd+del];
+			    } // for del =0
+		     }//else
+
+	         }//for i=j
+                 //calculate the sum 
+		 sum=accumulate(ispvecn[j].begin(),ispvecn[j].end(),0);
+                 // update iteration values for the starting points of each pass
+		 init += 1;
+		 intv += 1;
+		 //check to see the next vector to ensure length is correct
+		 if (check2==0){
+		    extraval2=0;
+		    check2=1;
+		 }//if check2
+		 else {
+                    extraval2++;
+		  }//else 
+	      } //while loop
+	    
+	      //change order because now the starting point is an odd
+	      if ((j+1)%2==0) {
+		intv=skip;
+		init=0;
+		start=0;
+		start2=1;
+	       }//if ((j+1)
+	      else {
+		intv=0;
+		init=skip;
+		start=1;
+		start2=0;
+	      }//else	
+         }//for j=0
+
+	//Now need to flatten the array
+	int value=0;
+	for (int i=0; i<_xyz->Ntd; i++){
+		for (int j=0; j<_xyz->Nsd; j++){
+			ispvec[value]=ispvecn[i][j]+(_xyz->Nsd)*i;
+			value++;
+		} // for int j=0
+	} // for int i=0 
  } // if patternID==6
  ////// Location of additional patterns
 } // end TempField
