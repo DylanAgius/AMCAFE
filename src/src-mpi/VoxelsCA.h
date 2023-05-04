@@ -121,6 +121,7 @@ class VoxelsCA
   std::vector<int> gID,gNucleus,ineighID,ineighptr;
   std::vector<int> vState; // 0=uninitialized; 1=liquid; 2=mushy; 3=solid
   std::vector<double> cTheta,extents,centroidOct;
+
   double vmax;
   double (*dendritevelptr)(double &,double &,double &,double &,double &,double &,double &,double & );
   int nGrain,seed0,seed1,NzhBP;

@@ -48,34 +48,45 @@ TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
       } // else (fmod(j,2)==0...
     } // for (int j=0...
   } // if (patternID==2...
+  
+  // pattern 5 is now a random selection
+  if (patternID==5){
+    std::srand(unsigned(std::time(0)));
+    std::iota(ispvec.begin(),ispvec.end(),0);
+    std::random_shuffle(ispvec.begin(),ispvec.end());
 
- // Pattern 5 is now a random selection
-if (patternID==5){
- std::srand(unsigned(std::time(0)));
- std::iota(ispvec.begin(),ispvec.end(),0);
- std::random_shuffle(ispvec.begin(),ispvec.end());
-}//if pattterID==5
-
- // Pattern 6 is now the Dehoff filling method
+    }
+    
+   // Pattern 6 is now the Dehoff filling method
  if (patternID==6){
     // Initialise values single values
-    int lines = 7; // this will have be user defined
-    int skip = 11; //this will have be user defined
+    int lines = 5; // this will have be user defined
+    int skip = 10; //this will have be user defined
     int intv=skip; 
     int init=0;
     int extraval2=0;
     int start=0;
     int start2=1;
     int ispvsum=0;
+    
+    FILE *fptr;
+	fptr=fopen("check.txt","a");
+      
+			fprintf(fptr,"%d, %d",_xyz->Nsd,_xyz->Ntd);
+			fprintf(fptr,"\n");
+			
+			fclose(fptr);
+   
+    
+    // Initialise additional vectors for Dehoff fill
+    std::vector<std::vector<int> > ispvecc(_xyz->Ntd,std::vector<int>(_xyz->Nsd));
+    std::vector<std::vector<int> > ispvecn(_xyz->Ntd,std::vector<int>(_xyz->Nsd));
+    std::vector<int> test;
 
-    // Initialise vectors
-    vector<vector<int> > ispvecc(_xyz->Ntd,vector<int>(_xyz->Nsd));
-    vector<vector<int> > ispvecn(_xyz->Ntd,vector<int>(_xyz->Nsd));
-    vector<int> test;
 
     // Calculate the total sum expected in the ispvec array
     // This is used to control the while loop
-    for (int v=0; v<_xyz->Nsd; ++v){
+    for (int v=0; v<_xyz->Nsd; v++){
         ispvsum += v;
      }
     // Outside loop which iterates across the expected number of laser passes
@@ -87,19 +98,22 @@ if (patternID==5){
 	 int sum=0;
 	 int size=_xyz->Nsd;
 	 int totalv=0;
-	 int totalv2=0;
-   
+	 int totalv2=0;/////added to see the time
+	 
+	 
+
+        
 	 while(sum <= ispvsum-_xyz->Nsd){
 	      for (int i=j; i<_xyz->Ntd; i+=lines){
 	          if (i%2==0){
-	             vector<int> test;
+	             std::vector<int> test;
 		     // define indeces of the first pass
 		     for (int k = init; k < _xyz->Nsd; k += skip) {
                         test.push_back(k);
 			totalv +=1;  // this is used to define the size of the array that is formed
 			} // for int k
 			if (start==0){
-			    if (totalv< int(_xyz->Nsd/skip)){
+			    if (totalv< _xyz->Nsd/skip){
 				check2=1;
 				//This adds an extra few points which is based on the location selection being larger the final pass value and the indeces 
 				// selection restarts
@@ -123,7 +137,7 @@ if (patternID==5){
 		    }//if i%2
 		    //These are the odd value lines which must also alternate from starting from zero to the "skip" value
 	            else {
-			vector<int> test;
+			std::vector<int> test;
 			for (int x=intv; x<_xyz->Nsd; x += skip){
 			    test.push_back(x);
 			    totalv2 += 1;
@@ -164,7 +178,10 @@ if (patternID==5){
 		 else {
                     extraval2++;
 		  }//else 
+		
+
 	      } //while loop
+	      
 	    
 	      //change order because now the starting point is an odd
 	      if ((j+1)%2==0) {
@@ -181,15 +198,28 @@ if (patternID==5){
 	      }//else	
          }//for j=0
 
+
 	//Now need to flatten the array
 	int value=0;
+
+	fptr=fopen("check.txt","a");
 	for (int i=0; i<_xyz->Ntd; i++){
 		for (int j=0; j<_xyz->Nsd; j++){
 			ispvec[value]=ispvecn[i][j]+(_xyz->Nsd)*i;
+			
+			fprintf(fptr,"%d",ispvec[value]);
+			fprintf(fptr,"\n");
 			value++;
+		  
+			
 		} // for int j=0
 	} // for int i=0 
+	
+    fclose(fptr);
+  ////////////////
+
  } // if patternID==6
+   
  ////// Location of additional patterns
 } // end TempField
 
@@ -217,6 +247,8 @@ void TempField::InitializeAnalytic()
   a1[3] = _xyz->meltparam[1];
   a1[4] = a1[1];
   a1[5] = a1[2];
+  
+
 } // end InitializeAnalytic 
 
 void TempField::AnalyticTempCurr(double tcurr,std::vector<double> & TempOut, std::vector<int> &icellid, int Ntot)
@@ -285,7 +317,113 @@ void TempField::AnalyticTempCurr(double tcurr,std::vector<double> & TempOut, std
       _xyz->inewscanflg=1;
     } // if (icheck==0...
   } // if (x<box[0...
-} // end AnalyticTempCurr()            
+} // end AnalyticTempCurr()          
+
+void TempField::AnalyticTempCurrAct(double tcurr,std::vector<double> & TempOut, std::vector<int> &icellid, int Ntot)
+{
+  //computes temp field based on Schwalbach et al
+  int j1,j2,j3,iplay;
+  double x0,y0,x,y,z,dsq,dsq2,bx,by,xi,xp,yp,dirp,zp,rij,tc;
+  std::vector<double> rij1(3),xs1(3),xs2(3);
+  iplay=_xyz->nX[0]*_xyz->nX[1]*_xyz->ilaserLoc;
+  
+  
+  //added definitions
+  std::vector<double> lam(3);
+  bmSTD = _xyz->beamSTD;
+  bmV = _xyz->bmV;
+  T0targ = _xyz->T0targ;
+  bmEta = _xyz->beamEta;
+  T0 = _xyz->T0;
+  bmDX = {DelT*bmV,2.7*bmSTD[1],_xyz->layerT};
+  double x1 = pow( pow(bmSTD[0],2.0)*pow(bmSTD[1],2.0)*pow(bmSTD[2],2.0),.5);
+  bmP = T0targ*_xyz->cP*_xyz->rho*pow(2.0,.5)*pow(M_PI,1.5)*x1/DelT;
+  rcut = pow( -2* pow(*std::min_element(bmSTD.begin(),bmSTD.end()),2.0)*log(.001),.5);
+  Ci = bmEta*bmP*DelT/(_xyz->rho*_xyz->cP*pow(2.0,.5)*pow(M_PI,1.5));
+  
+  TempOut.assign(Ntot,T0);
+  xi = _xyz->tL*(1+std::numeric_limits<double>::epsilon() );
+  int js1, js2;
+  std::vector<double> a1m(6);
+  for (int j=0;j<6;++j){a1m[j]=a1[j];}
+  // x,y,z spatial location of source (in grid reference frame)
+    x=_xyz->lcoor[2*ispvec[_xyz->isp]]-offset[0];
+  y=_xyz->lcoor[2*ispvec[_xyz->isp]+1]-offset[1];
+  z=_xyz->ilaserLoc*_xyz->dX[2]-offset[2];
+  for (int j=0;j<Ntot;++j){
+    j3 = floor(icellid[j]/(_xyz->nX[0]*_xyz->nX[1]));
+    j2 = floor( (icellid[j]- _xyz->nX[0]*_xyz->nX[1]*j3)/_xyz->nX[0]);
+    j1 = icellid[j] - _xyz->nX[0]*_xyz->nX[1]*j3 - _xyz->nX[0]*j2;
+    x0 = (double(j1)+.5)*(_xyz->dX[0]);
+    y0 = (double(j2)+.5)*(_xyz->dX[1]);
+    zp = (double(j3)+.5)*(_xyz->dX[2]);
+    if (zp>z){continue;}
+    xp=cos(_xyz->gth)*(x0-_xyz->LX[0]/2.)+
+      sin(_xyz->gth)*(y0-_xyz->LX[1]/2.)+_xyz->LX[0]/2.;
+    yp=-sin(_xyz->gth)*(x0-_xyz->LX[0]/2.) + 
+      cos(_xyz->gth)*(y0-_xyz->LX[1]/2.)+_xyz->LX[1]/2.;
+    if (fmod(_xyz->isp,_xyz->Nsd)==0){
+      dirp=(_xyz->lcoor[2*ispvec[_xyz->isp+1]]-_xyz->lcoor[2*ispvec[_xyz->isp]]);
+    } else {
+      dirp=(_xyz->lcoor[2*ispvec[_xyz->isp]]-_xyz->lcoor[2*ispvec[_xyz->isp-1]]);
+    }
+    rij1[0] = xp-x;
+    rij1[1] = yp-y;
+    rij1[2] = zp-z;
+    if (dirp*rij1[0]>0){ 
+      //xp,yp is in front of laser
+      dsq = pow(rij1[1]/a1m[1],2.0)+pow(rij1[2]/a1m[2],2.0);
+      //if (dsq<1.0 && (fabs(rij1[0])<bmDX[0]) ){
+	//TempOut[j]=xi;
+      //} else {
+      
+        //Added the following
+          tc = _xyz->time - DelT;
+         
+          lam = {pow(bmSTD[0],2.0)+2*alpha*(_xyz->time - tc), 
+	       pow(bmSTD[1],2.0)+2*alpha*(_xyz->time - tc),
+	       pow(bmSTD[2],2.0)+2*alpha*(_xyz->time - tc)};
+	       
+	  rij = pow(xp-x,2.0)/2/lam[0] +pow(yp-y,2.0)/2/lam[1] +
+	  pow(zp-z,2.0)/2/lam[2];
+          TempOut[j] += Ci/pow(lam[0]*lam[1]*lam[2],.5)*exp(-rij);
+	//TempOut[j] = _xyz->tS;
+      //}
+    } else {
+      dsq = pow(rij1[0]/a1m[3],2.0)+pow(rij1[1]/a1m[4],2.0)+pow(rij1[2]/a1m[5],2.0);
+      //if (dsq<1.0){
+	//TempOut[j]=xi;
+      //} else {
+          //Added the following
+          tc = _xyz->time - DelT;
+         
+          lam = {pow(bmSTD[0],2.0)+2*alpha*(_xyz->time - tc), 
+	       pow(bmSTD[1],2.0)+2*alpha*(_xyz->time - tc),
+	       pow(bmSTD[2],2.0)+2*alpha*(_xyz->time - tc)};
+	       
+	  rij = pow(xp-x,2.0)/2/lam[0] +pow(yp-y,2.0)/2/lam[1] +
+	  pow(zp-z,2.0)/2/lam[2];
+          TempOut[j] += Ci/pow(lam[0]*lam[1]*lam[2],.5)*exp(-rij);
+	//TempOut[j] = _xyz->tS;
+      //}
+    } // if (dirp*rij1[0]>0...
+  } // for (int j=0...
+ 
+	
+  // update to new scan if nothing melted (i.e. laser well outside domain)
+  double tmelt=_xyz->tL;
+  int n1=_part->ncellLoc,icheck,ichecktmp;
+  x=_xyz->lcoor2[2*ispvec[_xyz->isp]]-offset[0];
+  y=_xyz->lcoor2[2*ispvec[_xyz->isp]+1]-offset[1];
+  if (x<_xyz->gbox[0] || x>_xyz->gbox[1] || y<_xyz->gbox[2] || y>_xyz->gbox[3]){
+    ichecktmp=std::any_of(TempOut.begin(),TempOut.begin()+n1,[&tmelt]
+			  (double tchk){return tchk >= tmelt;});
+    MPI_Allreduce(&ichecktmp,&icheck,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    if (icheck==0){ 
+      _xyz->inewscanflg=1;
+    } // if (icheck==0...
+  } // if (x<box[0...
+} // end AnalyticTempCurrAct()            
 void TempField::InitializeSchwalbach()
 {
   /*

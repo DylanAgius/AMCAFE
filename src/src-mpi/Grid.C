@@ -42,7 +42,7 @@ Grid::Grid(std::string &filIn, int & myidIn, int & nprocsIn)
   rho = 8000.0; // kg /m^3
   cP = 502; // 502.0; // J/kg-K)
   kappa = 18; //18; //18.0; // W/(m-K)
-  beamSTD = {7.5e-5,7.5e-5,7.5e-5};
+  beamSTD = {162.75e-6,7.5e-5,7.5e-5};
   layerT = 25e-6;
   bpH = 0.0;
   mu = .01; // note that this is rate/ (\mu m)^3 for base plate tessellation
@@ -109,17 +109,6 @@ Grid::Grid(std::string &filIn, int & myidIn, int & nprocsIn)
 void Grid::UpdateLaser(){
   int itmp,iflg=0,irep=0;
   double x,y;
-
-  // update laser to new scan if at last point in scan
-  if (fmod(isp+1,Nsd)==0){inewscanflg=1;}
-  // if at last step of layer, new layer gets updated here
-  if (isp==(NpT-1)){
-      inewscanflg=1;
-      inewlayerflg=1;
-      isp=0;
-      indlayer+=1;
-  }
-  // otherwise, update laser location in general
   while(irep==0 || isp==0){
     irep+=1;
     itmp=isp;
