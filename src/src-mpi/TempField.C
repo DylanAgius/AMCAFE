@@ -10,6 +10,11 @@
 #include "numeric"
 #include <algorithm>
 #include "mpi.h"
+#include <ctime>
+#include <random>
+#include <functional>
+
+
 
 // constructor
 TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
@@ -27,13 +32,31 @@ TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
   DelT = _xyz->bmDelT;
   bmDX = {DelT*bmV,_xyz->bhatch,_xyz->layerT}; // (SD, TD, BD) per layer
   offset=_xyz->offset;
-  ispvec.assign(_xyz->NpT,0);
+ // ispvec.assign(_xyz->NpT,0);
+  
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  
+
+    std::mt19937 rng(rd());
+
+  
+
+  
+
+
 	
   //It is here that the addtional patterns must be added.
   if (patternID==1 || patternID==3){
+   ispvec.assign(_xyz->NpT,0);
     std::iota(ispvec.begin(),ispvec.end(),0);
+    
+    for (int value : ispvec) {
+       std::cout << value << " ";
+   }
   } // if (patternID==1...
   if (patternID==2 || patternID==4){
+   ispvec.assign(_xyz->NpT,0);
     int k;
     for (int j=0;j<_xyz->Ntd;++j){
       k=_xyz->Nsd*j;
@@ -47,8 +70,283 @@ TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
       } // else (fmod(j,2)==0...
     } // for (int j=0...
   } // if (patternID==2...
+  
+  // pattern 5 is now a random selection
+  if (patternID==5){
+  // A simple hash function (not secure for cryptographic use)
+
+
+
+    std::vector<unsigned int> numbers;
+    for (int i = 0; i < _xyz->NpT; ++i) {
+        ispvec.push_back(i);
+    }
+
+    // Use the hash function to reorder the numbers
+    for (int i = 0; i < _xyz->NpT; ++i) {
+        unsigned int hashValue = simpleHash(i + 1);
+        unsigned int newIndex = hashValue % (i + 1);
+
+       // Swap numbers[i] and numbers[newIndex]
+        unsigned int temp = ispvec[i];
+        ispvec[i] = ispvec[newIndex];
+        ispvec[newIndex] = temp;
+    }
+    }
+    
+  if (patternID==8){
+  //std::srand(static_cast<unsigned int>(std::time(nullptr)));
+ 
+    //ispvec=_xyz->ispvec;
+    
+   std::vector<int> values(_xyz->NpT);
+   std::iota(values.begin(), values.end(), 0);
+
+
+    std::vector<std::pair<double, int>> pairs;
+    pairs.reserve(values.size());
+
+   for (int i = 0; i < values.size(); ++i) {
+       pairs.push_back(tuplify(values[i], i));
+    }
+
+    std::sort(pairs.begin(), pairs.end());
+
+  
+    ispvec.reserve(pairs.size());
+
+   for (const auto& p : pairs) {
+        ispvec.push_back(p.second);
+  }
+    
+  //   for (int value : ispvec) {
+  //      std::cout << value << " ";
+  //  }
+
+   
+  }
+    
+    
+  if (patternID==7){
+     int k = 0;
+     std::vector<int> test;
+     int Nsd1=_xyz->Nsd/2;
+     int Nsd2=_xyz->Nsd/2;
+    
+   for (int j = 0; j < _xyz->Ntd*2; ++j) {
+           k = j * Nsd2; // Incrementally increase k by Nsd2
+        
+        if (j % 2 == 0) {
+            std::vector<int> val;
+            for (int idx = k; idx < k + Nsd1; ++idx) {
+                val.push_back(idx);
+            }
+            
+            std::srand(static_cast<unsigned int>(std::time(nullptr)));
+            std::random_shuffle(val.begin(), val.end());
+            
+            ispvec.insert(ispvec.end(), val.begin(), val.end());
+        } else {
+            test.clear();
+            for (int j1 = 0; j1 < Nsd1; ++j1) {
+                test.push_back(k + Nsd1 - 1 - j1);
+            }
+            
+            std::srand(static_cast<unsigned int>(std::time(nullptr)));
+            std::random_shuffle(test.begin(), test.end());
+            
+            ispvec.insert(ispvec.end(), test.begin(), test.end());
+        }
+        }
+        }
+    
+   // Pattern 6 is now the Dehoff filling method
+ if (patternID==6){
+    // Initialise values single values
+    int lines = 5; // this will have be user defined
+    int skip = 10; //this will have be user defined
+    int intv=skip; 
+    int init=0;
+    int extraval2=0;
+    int start=0;
+    int start2=1;
+    int ispvsum=0;
+    
+    FILE *fptr;
+	fptr=fopen("check.txt","a");
+      
+			fprintf(fptr,"%d, %d",_xyz->Nsd,_xyz->Ntd);
+			fprintf(fptr,"\n");
+			
+			fclose(fptr);
+   
+    
+    // Initialise additional vectors for Dehoff fill
+    std::vector<std::vector<int> > ispvecc(_xyz->Ntd,std::vector<int>(_xyz->Nsd));
+    std::vector<std::vector<int> > ispvecn(_xyz->Ntd,std::vector<int>(_xyz->Nsd));
+    std::vector<int> test;
+
+
+    // Calculate the total sum expected in the ispvec array
+    // This is used to control the while loop
+    for (int v=0; v<_xyz->Nsd; v++){
+        ispvsum += v;
+     }
+    // Outside loop which iterates across the expected number of laser passes
+    for (int j=0; j<_xyz->Ntd; j++){
+         // Need to update loop values since these are used within the while and for loops below
+	 int check=0;
+ 	 int check2=0;
+	 int extraval2=0;
+	 int sum=0;
+	 int size=_xyz->Nsd;
+	 int totalv=0;
+	 int totalv2=0;/////added to see the time
+	 
+	 
+
+        
+	 while(sum <= ispvsum-_xyz->Nsd){
+	      for (int i=j; i<_xyz->Ntd; i+=lines){
+	          if (i%2==0){
+	             std::vector<int> test;
+		     // define indeces of the first pass
+		     for (int k = init; k < _xyz->Nsd; k += skip) {
+                        test.push_back(k);
+			totalv +=1;  // this is used to define the size of the array that is formed
+			} // for int k
+			if (start==0){
+			    if (totalv< _xyz->Nsd/skip){
+				check2=1;
+				//This adds an extra few points which is based on the location selection being larger the final pass value and the indeces 
+				// selection restarts
+				test.push_back(extraval2);
+			    } //if totalv
+			 } // if start
+			 // if start is not zero (this is used to determine if the pass starts from zero or at the 'skip' location
+			 else {
+			     if ((totalv<(_xyz->Nsd/skip)) || (totalv<totalv2)){
+				check2=1;
+				test.push_back(extraval2);
+			      }//if totalv
+			  }//else 
+			  //adds to the vector which defines the passes along the beam length
+			  ispvecc[i].insert(ispvecc[i].end(),test.begin(),test.end());
+	                  totalv2=0; // updates the total value to be used again in the next pass
+			  //update array to remove leading 0s
+			  for (int del=0; del<_xyz->Nsd;del++){
+			      ispvecn[i][del]=ispvecc[i][_xyz->Nsd+del];
+			   }
+		    }//if i%2
+		    //These are the odd value lines which must also alternate from starting from zero to the "skip" value
+	            else {
+			std::vector<int> test;
+			for (int x=intv; x<_xyz->Nsd; x += skip){
+			    test.push_back(x);
+			    totalv2 += 1;
+			 }//for  int x=intv
+			 if (start2==0){
+                            if (totalv2<(_xyz->Nsd/skip)){
+			       check2=1;
+			       test.push_back(extraval2);
+			     } //if totalv2
+		          } // if start2=0
+			  else {
+                             if ((totalv2< (_xyz->Nsd/skip)) || (totalv2 <totalv)){
+				check2=1;
+				// Add the extra value if the pass is larger than the are area.
+				test.push_back(extraval2);
+			      } //if totalv2 ||
+			   } //else
+			   //adds to the vector which defines the passes along the beam length
+			   ispvecc[i].insert(ispvecc[i].end(),test.begin(),test.end());
+			   totalv=0;
+			   //update array to remove leading 0s
+			   for (int del=0; del<_xyz->Nsd;del++){
+			       ispvecn[i][del]=ispvecc[i][_xyz->Nsd+del];
+			    } // for del =0
+		     }//else
+
+	         }//for i=j
+                 //calculate the sum 
+		 sum=accumulate(ispvecn[j].begin(),ispvecn[j].end(),0);
+                 // update iteration values for the starting points of each pass
+		 init += 1;
+		 intv += 1;
+		 //check to see the next vector to ensure length is correct
+		 if (check2==0){
+		    extraval2=0;
+		    check2=1;
+		 }//if check2
+		 else {
+                    extraval2++;
+		  }//else 
+		
+
+	      } //while loop
+	      
+	    
+	      //change order because now the starting point is an odd
+	      if ((j+1)%2==0) {
+		intv=skip;
+		init=0;
+		start=0;
+		start2=1;
+	       }//if ((j+1)
+	      else {
+		intv=0;
+		init=skip;
+		start=1;
+		start2=0;
+	      }//else	
+         }//for j=0
+
+
+	//Now need to flatten the array
+	int value=0;
+
+	fptr=fopen("check.txt","a");
+	for (int i=0; i<_xyz->Ntd; i++){
+		for (int j=0; j<_xyz->Nsd; j++){
+			ispvec[value]=ispvecn[i][j]+(_xyz->Nsd)*i;
+			
+			fprintf(fptr,"%d",ispvec[value]);
+			fprintf(fptr,"\n");
+			value++;
+		  
+			
+		} // for int j=0
+	} // for int i=0 
+	
+    fclose(fptr);
+  ////////////////
+
+ } // if patternID==6
+   
  ////// Location of additional patterns
 } // end TempField
+
+unsigned int TempField::simpleHash(unsigned int input) {
+    return (input * 2654435761u) % 4294967296u;
+}
+
+
+  std::pair<double, int> TempField::tuplify(int x, int y) {
+    //std::normal_distribution<double> normalDist(0, 1);
+      double orderliness = 0.5;
+    double first = orderliness * y + randomGaussian();
+    return std::make_pair(first, x);
+}
+
+// Function to generate normally distributed random numbers using Box-Muller transform
+double TempField::randomGaussian() {
+    double u1 = static_cast<double>(rand()) / RAND_MAX;
+    double u2 = static_cast<double>(rand()) / RAND_MAX;
+    return sqrt(-2 * log(u1)) * cos(2 * M_PI * u2);
+}
+
+
+
 
 void TempField::InitializeAnalytic()
 {
@@ -74,6 +372,8 @@ void TempField::InitializeAnalytic()
   a1[3] = _xyz->meltparam[1];
   a1[4] = a1[1];
   a1[5] = a1[2];
+  
+
 } // end InitializeAnalytic 
 
 void TempField::AnalyticTempCurr(double tcurr,std::vector<double> & TempOut, std::vector<int> &icellid, int Ntot)
@@ -142,7 +442,114 @@ void TempField::AnalyticTempCurr(double tcurr,std::vector<double> & TempOut, std
       _xyz->inewscanflg=1;
     } // if (icheck==0...
   } // if (x<box[0...
-} // end AnalyticTempCurr()            
+} // end AnalyticTempCurr()          
+
+void TempField::AnalyticTempCurrAct(double tcurr,std::vector<double> & TempOut, std::vector<int> &icellid, int Ntot)
+{
+  //computes temp field based on Schwalbach et al
+  int j1,j2,j3,iplay;
+  double x0,y0,x,y,z,dsq,dsq2,bx,by,xi,xp,yp,dirp,zp,rij,tc;
+  std::vector<double> rij1(3),xs1(3),xs2(3);
+  iplay=_xyz->nX[0]*_xyz->nX[1]*_xyz->ilaserLoc;
+  
+  
+  //added definitions
+  std::vector<double> lam(3);
+  bmSTD = _xyz->beamSTD;
+  bmV = _xyz->bmV;
+  T0targ = _xyz->T0targ;
+  bmEta = _xyz->beamEta;
+  T0 = _xyz->T0;
+  bmDX = {DelT*bmV,2.7*bmSTD[1],_xyz->layerT};
+  double x1 = pow( pow(bmSTD[0],2.0)*pow(bmSTD[1],2.0)*pow(bmSTD[2],2.0),.5);
+  //bmP = T0targ*_xyz->cP*_xyz->rho*pow(2.0,.5)*pow(M_PI,1.5)*x1/DelT;
+  bmP=_xyz->bmP;
+  rcut = pow( -2* pow(*std::min_element(bmSTD.begin(),bmSTD.end()),2.0)*log(.001),.5);
+  Ci = bmEta*bmP*DelT/(_xyz->rho*_xyz->cP*pow(2.0,.5)*pow(M_PI,1.5));
+  
+  TempOut.assign(Ntot,T0);
+  xi = _xyz->tL*(1+std::numeric_limits<double>::epsilon() );
+  int js1, js2;
+  std::vector<double> a1m(6);
+  for (int j=0;j<6;++j){a1m[j]=a1[j];}
+  // x,y,z spatial location of source (in grid reference frame)
+    x=_xyz->lcoor[2*ispvec[_xyz->isp]]-offset[0];
+  y=_xyz->lcoor[2*ispvec[_xyz->isp]+1]-offset[1];
+  z=_xyz->ilaserLoc*_xyz->dX[2]-offset[2];
+  for (int j=0;j<Ntot;++j){
+    j3 = floor(icellid[j]/(_xyz->nX[0]*_xyz->nX[1]));
+    j2 = floor( (icellid[j]- _xyz->nX[0]*_xyz->nX[1]*j3)/_xyz->nX[0]);
+    j1 = icellid[j] - _xyz->nX[0]*_xyz->nX[1]*j3 - _xyz->nX[0]*j2;
+    x0 = (double(j1)+.5)*(_xyz->dX[0]);
+    y0 = (double(j2)+.5)*(_xyz->dX[1]);
+    zp = (double(j3)+.5)*(_xyz->dX[2]);
+    if (zp>z){continue;}
+    xp=cos(_xyz->gth)*(x0-_xyz->LX[0]/2.)+
+      sin(_xyz->gth)*(y0-_xyz->LX[1]/2.)+_xyz->LX[0]/2.;
+    yp=-sin(_xyz->gth)*(x0-_xyz->LX[0]/2.) + 
+      cos(_xyz->gth)*(y0-_xyz->LX[1]/2.)+_xyz->LX[1]/2.;
+    if (fmod(_xyz->isp,_xyz->Nsd)==0){
+      dirp=(_xyz->lcoor[2*ispvec[_xyz->isp+1]]-_xyz->lcoor[2*ispvec[_xyz->isp]]);
+    } else {
+      dirp=(_xyz->lcoor[2*ispvec[_xyz->isp]]-_xyz->lcoor[2*ispvec[_xyz->isp-1]]);
+    }
+    rij1[0] = xp-x;
+    rij1[1] = yp-y;
+    rij1[2] = zp-z;
+    if (dirp*rij1[0]>0){ 
+      //xp,yp is in front of laser
+      dsq = pow(rij1[1]/a1m[1],2.0)+pow(rij1[2]/a1m[2],2.0);
+      //if (dsq<1.0 && (fabs(rij1[0])<bmDX[0]) ){
+	//TempOut[j]=xi;
+      //} else {
+      
+        //Added the following
+          tc = _xyz->time - DelT;
+         
+          lam = {pow(bmSTD[0],2.0)+2*alpha*(_xyz->time - tc), 
+	       pow(bmSTD[1],2.0)+2*alpha*(_xyz->time - tc),
+	       pow(bmSTD[2],2.0)+2*alpha*(_xyz->time - tc)};
+	       
+	  rij = pow(xp-x,2.0)/2/lam[0] +pow(yp-y,2.0)/2/lam[1] +
+	  pow(zp-z,2.0)/2/lam[2];
+          TempOut[j] += Ci/pow(lam[0]*lam[1]*lam[2],.5)*exp(-rij);
+	//TempOut[j] = _xyz->tS;
+      //}
+    } else {
+      dsq = pow(rij1[0]/a1m[3],2.0)+pow(rij1[1]/a1m[4],2.0)+pow(rij1[2]/a1m[5],2.0);
+      //if (dsq<1.0){
+	//TempOut[j]=xi;
+      //} else {
+          //Added the following
+          tc = _xyz->time - DelT;
+         
+          lam = {pow(bmSTD[0],2.0)+2*alpha*(_xyz->time - tc), 
+	       pow(bmSTD[1],2.0)+2*alpha*(_xyz->time - tc),
+	       pow(bmSTD[2],2.0)+2*alpha*(_xyz->time - tc)};
+	       
+	  rij = pow(xp-x,2.0)/2/lam[0] +pow(yp-y,2.0)/2/lam[1] +
+	  pow(zp-z,2.0)/2/lam[2];
+          TempOut[j] += Ci/pow(lam[0]*lam[1]*lam[2],.5)*exp(-rij);
+	//TempOut[j] = _xyz->tS;
+      //}
+    } // if (dirp*rij1[0]>0...
+  } // for (int j=0...
+ 
+	
+  // update to new scan if nothing melted (i.e. laser well outside domain)
+  double tmelt=_xyz->tL;
+  int n1=_part->ncellLoc,icheck,ichecktmp;
+  x=_xyz->lcoor2[2*ispvec[_xyz->isp]]-offset[0];
+  y=_xyz->lcoor2[2*ispvec[_xyz->isp]+1]-offset[1];
+  if (x<_xyz->gbox[0] || x>_xyz->gbox[1] || y<_xyz->gbox[2] || y>_xyz->gbox[3]){
+    ichecktmp=std::any_of(TempOut.begin(),TempOut.begin()+n1,[&tmelt]
+			  (double tchk){return tchk >= tmelt;});
+    MPI_Allreduce(&ichecktmp,&icheck,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    if (icheck==0){ 
+      _xyz->inewscanflg=1;
+    } // if (icheck==0...
+  } // if (x<box[0...
+} // end AnalyticTempCurrAct()            
 void TempField::InitializeSchwalbach()
 {
   /*

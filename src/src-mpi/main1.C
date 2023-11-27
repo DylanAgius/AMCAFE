@@ -57,9 +57,18 @@ int main(int argc, char *argv[])
   vox.AddLayer1();
   g.UpdateLaser(); // initiate first laser location
   while (!bcheck){
+/////added to see the time
+      FILE *fptr;
+    fptr=fopen("time.txt","a");
+    fprintf(fptr,"%f",g.time);
+    fprintf(fptr,"\n");
+    
+    fclose(fptr);
+  ////////////////
     // update temperature field
     TempF.tInd = int(round(g.time/TempF.DelT));
     TempF.AnalyticTempCurr(g.time,TempF.TempCurr,part.icellidLoc,Ntot);
+    TempF.AnalyticTempCurrAct(g.time,TempF.TempCurrAct,part.icellidLoc,Ntot);
     // update next step for voxels 
     vox.UpdateVoxels();
     //write out

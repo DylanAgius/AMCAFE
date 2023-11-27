@@ -5,12 +5,17 @@
 #include "iostream"
 #include <math.h>
 #include <vector>
+#include <string>
+#include <algorithm>
+#include <random>
+#include <numeric>
 class Grid
 {
  public:
   // default constructor
   Grid(std::string & filIn, int & myid, int & nprocs);  
   // any functions added here
+  std::pair<double, int> tuplify(int, int, std::mt19937&);
   void readInputFile();
   void UpdateTime(const double &velo);
   void UpdateTime2(const double &dtIn);
@@ -66,8 +71,11 @@ class Grid
   double bpH; // base plate height
   double lrate; // layer rate for Voronoi powder microstructure 
   double beamEta,T0targ,bmDelT,gbox[4],Avel,nvel;
+  double mtype; // dendrite growth model
   std::string ntype; // type of neighborhood: Moore or VonNeumann
   std::string neighOrder; // order of neighborhood
+  
+  std::vector<int> ispvec;
 }; // end class Grid
 
 #endif

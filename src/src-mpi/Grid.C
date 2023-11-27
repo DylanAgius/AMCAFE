@@ -10,6 +10,8 @@
 #include "fstream"
 #include "sstream"
 #include "numeric"
+#include <ctime>
+#include <random>
 
 //constructor
 Grid::Grid(std::string &filIn, int & myidIn, int & nprocsIn)
@@ -64,6 +66,7 @@ Grid::Grid(std::string &filIn, int & myidIn, int & nprocsIn)
   nvel=0.;
   //read data from input file
   readInputFile();
+  
   //if (gsize[0]==0){gsize={nX[0]*dX[0]*2,nX[1]*dX[1]*2};}
   LX = {nX[0]*dX[0],nX[1]*dX[1],nX[2]*dX[2]};
   bpH< std::numeric_limits<double>::epsilon() ? bpH=layerT : bpH=bpH;
@@ -104,22 +107,59 @@ Grid::Grid(std::string &filIn, int & myidIn, int & nprocsIn)
   gbox[0]=-bhatch/2.;
   gbox[1]=LX[0]+bhatch/2.;
   gbox[2]=-bhatch/2.;
-  gbox[3]=LX[1]+bhatch/2.;               
+  gbox[3]=LX[1]+bhatch/2.;  
+  
+  
+  ///////////////////////added something to test
+  //std::random_device rd;
+  //  std::mt19937 gen(rd());
+  
+
+  //  std::mt19937 rng(rd());
+  // std::vector<int> values(NpT);
+  //  std::iota(values.begin(), values.end(), 0);
+
+
+  //  std::vector<std::pair<double, int>> pairs;
+  //  pairs.reserve(values.size());
+
+  //  for (int i = 0; i < NpT; ++i) {
+  //      pairs.push_back(tuplify(values[i], i, rng));
+  //  }
+
+ //   std::sort(pairs.begin(), pairs.end());
+
+  
+  //  //ispvec.reserve(pairs.size());
+
+  //  for (const auto& p : pairs) {
+  //      ispvec.push_back(p.second);
+  //  }
+    
+     //for (int value : ispvec) {
+     //   std::cout << value << " ";
+   // }
+  
+  /////////////////////////
+  ///just adding this to test out with there is a difference making the scan strategy here
+  //ispvec.assign(NpT,0);
+  //std::srand(unsigned(std::time(0)));
+  //std::iota(ispvec.begin(),ispvec.end(),0);
+  //std::random_shuffle(ispvec.begin(),ispvec.end());
+  ///////////////////////
+
 } // end constructor
+
+  std::pair<double, int> Grid::tuplify(int x, int y, std::mt19937& rng) {
+    std::normal_distribution<double> normalDist(0, 1);
+      double orderliness = 1.0;
+    double first = orderliness * y + normalDist(rng);
+    return std::make_pair(first, x);
+}
+
 void Grid::UpdateLaser(){
   int itmp,iflg=0,irep=0;
   double x,y;
-
-  // update laser to new scan if at last point in scan
-  if (fmod(isp+1,Nsd)==0){inewscanflg=1;}
-  // if at last step of layer, new layer gets updated here
-  if (isp==(NpT-1)){
-      inewscanflg=1;
-      inewlayerflg=1;
-      isp=0;
-      indlayer+=1;
-  }
-  // otherwise, update laser location in general
   while(irep==0 || isp==0){
     irep+=1;
     itmp=isp;
@@ -306,6 +346,10 @@ void Grid::readInputFile()
       Avel=std::stod(keyword);
       simInput >> keyword;
       nvel=std::stod(keyword);
+    }
+    if (keyword=="dendritemodel"){
+	simInput >> keyword;
+	mtype=std::stod(keyword);
     }
 
     simInput >> keyword;

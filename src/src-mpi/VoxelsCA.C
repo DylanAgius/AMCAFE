@@ -22,13 +22,26 @@
     double v=(5.51*pow(M_PI,2.0)*pow((-mL)*(1-kP),1.5)*
        (Gamma))*( pow((tL - T),2.5)/pow(c0,1.5)); // LGK model                                                                                             
     return v;
-  } // end inline void dendriteVel1                                                                                                                        
+  } // end inline void dendriteVel1  
+                                                                                                                      
   inline double dendriteVel2(double &tL,double &mL,double &kP,double &Gamma,double &c0,
                           double &A, double &n, double &T)
   {
     double v=A*pow(tL-T,n);
     return v;
+  } // end inline void dendriteVel    
+
+  // An additional dendrite growth rate baed on that in "grain growth prediction in selective electron beam melting
+  // of Ti-6Al-4V with a cellular automaton method
+
+  inline double dendriteVel3(double &tL,double &mL,double &kP,double &Gamma,double &c0,
+                          double &A, double &n, double &T)
+  {
+    double v=A*(tL-T)+n*pow((tL-T),2);
+    return v;
   } // end inline void dendriteVel     
+
+ 
 
 // constructor
 VoxelsCA::VoxelsCA(Grid &g,TempField &tf, Partition &part)
@@ -47,9 +60,12 @@ VoxelsCA::VoxelsCA(Grid &g,TempField &tf, Partition &part)
   seed1=2912351;
   genlayer.seed(seed1);
   // determine dendrite velocity model
-  if (_xyz->Avel>0){
-    dendritevelptr=dendriteVel2;} else {
-    dendritevelptr=dendriteVel1;}
+  if (_xyz->mtype==1.){
+    dendritevelptr=dendriteVel1;} 
+  if (_xyz->mtype==2.){
+    dendritevelptr=dendriteVel2;}
+  if (_xyz->mtype==3.){
+    dendritevelptr=dendriteVel3;}
   // establishes ineighID and ineighptr for convertSolid1 
   int cc=0;
   std::vector<int> neigh;
@@ -348,7 +364,10 @@ void VoxelsCA::UpdateVoxels()
 	  loadRotMat(omega,ax,rRot);	    
 	  //T[i1]>=_xyz->tL ? vhatvec[j]=0.0: vhatvec[j]=dendritevelptr(_xyz->tL,_xyz->mL,_xyz->kP,_xyz->Gamma,
 	//						_xyz->c0,_xyz->Avel,_xyz->nvel,T[i1]);
-	  T[i1]>=_xyz->tL ? vhatvec[j]=0.0: vhatvec[j]=_xyz->Avel*pow(_xyz->tL-T[i1],_xyz->nvel);
+	  if (_xyz->mtype==2){
+		T[i1]>=_xyz->tL ? vhatvec[j]=0.0: vhatvec[j]=_xyz->Avel*pow(_xyz->tL-T[i1],_xyz->nvel);}
+	  if (_xyz->mtype==3){
+		T[i1]>=_xyz->tL ? vhatvec[j]=0.0: vhatvec[j]=_xyz->Avel*(_xyz->tL-T[i1]) + _xyz->nvel*pow((_xyz->tL-T[i1]),2.0);}
 	  for (int j1=0;j1<i6;++j1){
 	    if (vSneigh[j1] != 1 ){continue;}
             i4 = ineighIDA[i5+j1];
@@ -788,6 +807,9 @@ void VoxelsCA::AddLayer(){
     adds the layer of powder and is called at the beginning of new layer
     - this version adds a new grain for every voxel
    */
+   ///// added DA
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    /////
   int Ntot,Ntot2,i1t,nVlayer,j1,j2,j3,iz1,jvox0;
   Ntot = _part->ncellLoc;
   Ntot2 = _part->ncellLoc + _part->nGhost;
@@ -888,6 +910,7 @@ void VoxelsCA::AddLayer1(){
       i2+=1;
     }
   }
+  ig1=nGrain+ng2;
   if (i2 != ng2){
     for (int j=0;j<i3*_xyz->nZlayer;++j){
       i1=gtmp[j]-1;
@@ -909,11 +932,11 @@ void VoxelsCA::AddLayer1(){
       } // if (j<Ntot)
     } // if (j3>=iz1 && j3<_xyz->ilaserLoc ...
   } // for (int j...
-  nGrain += i2;  
+  nGrain += i2+1;  
   SampleOrientation sa1;
   // randomly generate crystallographic orientations
   std::vector<double> aa;
-  ng2=i2;
+  ng2=i2+1;
   sa1.GenerateSamples(ng2,sdloc,aa);
   cTheta.insert(cTheta.end(), aa.begin(),aa.end());
   // assign appropriate vState (including zeroing states above ilaserLoc
@@ -1212,10 +1235,17 @@ void VoxelsCA::ComputeExtents(){
       } else if (!std::any_of(vneigh.begin(),vneigh.end(),[](int n){return n==1;})) {
 	velocity[j] = 0.0;
       } else{
+	if (_xyz->mtype==1.0){
 	velocity[j] = (_xyz->dL)/
 	  (5.51*pow(M_PI,2.0)*pow((- _xyz->mL)*(1-_xyz->kP),1.5)*
 	   (_xyz->Gamma))*( pow((_xyz->tL - _temp->TempCurr[j]),2.5)/
-			  pow(_xyz->c0,1.5));
+			  pow(_xyz->c0,1.5));}
+	if(_xyz->mtype==2.0){
+           velocity[j]=_xyz->Avel*pow(_xyz->tL- _temp->TempCurr[j],_xyz->nvel);}
+	
+
+	if(_xyz->mtype==3.0){
+           velocity[j]=_xyz->Avel*(_xyz->tL - _temp->TempCurr[j]) + _xyz->nvel*pow((_xyz->tL- _temp->TempCurr[j]),2.);}
        }	
       vmax = std::max(vmax,velocity[j]);
     } // if (vState[j]==2)
@@ -1540,6 +1570,7 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
   int Ntot=_part->ncellLoc, i1,i2,i3,icase;
   std::string hdf5Filename = filename + ".h5";
   std::vector< float> TempOut(Ntot,0),IPFmapBD(3*Ntot,0), IPFmapx(3*Ntot,0), IPFmapy(3*Ntot,0),cth(4*nGrain,0);
+  std::vector<float> qr(Ntot),qi(Ntot),qj(Ntot),qk(Ntot);
   double vBD[3]={0.0,0.0,1.0},omega,ax[3],vCD[3],mxAng,blue,green,red,rRot[3][3],mscale,
     vX[3]={1.0,0.0,0.0},vY[3]={0.0,1.0,0.0},xp,yp,x0,y0,m,a,b,c,H,S,V,sMax,ff,p,q,t;
   std::vector<std::vector<double>> triPts(2,std::vector<double>(3,0));
@@ -1557,7 +1588,7 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
   x0=y0/m;
   sMax=pow(pow(x0,2.)+pow(y0,2.),.5);
   for (int j=0;j<Ntot;++j){
-    TempOut[j] = _temp->TempCurr[j];
+    TempOut[j] = _temp->TempCurrAct[j];
     if (gID[j]<1){
       IPFmapBD[3*j] = 0.0;
       IPFmapBD[3*j+1] = 0.0;
@@ -1573,7 +1604,8 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
       ax[0]= cTheta[4*(gID[j]-1)+1];
       ax[1]= cTheta[4*(gID[j]-1)+2];
       ax[2]= cTheta[4*(gID[j]-1)+3];
-      // matrix is local->global; need to multiply by transpose for global->local            
+      // matrix is local->global; need to multiply by transpose for global->local     
+      // where omega is the euler angle (https://en.wikipedia.org/wiki/Rotation_formalisms_in_three_dimensions)
       rRot[0][0] = cos(omega) + pow(ax[0],2.0)*(1-cos(omega));
       rRot[0][1] = ax[0]*ax[1]*(1-cos(omega)) - ax[2]*sin(omega);
       rRot[0][2] = ax[0]*ax[2]*(1-cos(omega)) + ax[1]*sin(omega);
@@ -1583,6 +1615,14 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
       rRot[2][0] = ax[2]*ax[0]*(1-cos(omega)) - ax[1]*sin(omega);
       rRot[2][1] = ax[2]*ax[1]*(1-cos(omega)) + ax[0]*sin(omega);
       rRot[2][2] = cos(omega) + pow(ax[2],2.0)*(1-cos(omega));
+      
+     
+      qr[j]=(0.5)*pow(1+rRot[0][0] + rRot[1][1] + rRot[2][2],0.5);
+      qi[j]= (1./(4.*qr[j]))*(rRot[2][1]-rRot[1][2]);
+      qj[j]=(1./(4.*qr[j]))*(rRot[0][2]-rRot[2][0]);
+      qk[j]=(1./(4.*qr[j]))*(rRot[1][0]-rRot[0][1]);
+      
+      
       vCD[0] = std::fabs(rRot[0][0]*vBD[0]+rRot[1][0]*vBD[1]+rRot[2][0]*vBD[2]);
       vCD[1] = std::fabs(rRot[0][1]*vBD[0]+rRot[1][1]*vBD[1]+rRot[2][1]*vBD[2]);
       vCD[2] = std::fabs(rRot[0][2]*vBD[0]+rRot[1][2]*vBD[1]+rRot[2][2]*vBD[2]);
@@ -1773,7 +1813,7 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
   adios2::Variable<int> vStatea = hdf5IO.DefineVariable<int>(
 	      "vState", {nVoxT}, {js}, {jc});
   adios2::Variable<float> TempOuta = hdf5IO.DefineVariable<float>(
-	      "Temperature", {nVoxT}, {js}, {jc});
+	      "Temperature2", {nVoxT}, {js}, {jc});
   adios2::Variable<float> IPFmapBDa = hdf5IO.DefineVariable<float>(
 	      "IPFz", {3*nVoxT}, {3*js}, {3*jc});
   adios2::Variable<float> IPFmapxa = hdf5IO.DefineVariable<float>(
@@ -1782,6 +1822,14 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
 	      "IPFy", {3*nVoxT}, {3*js}, {3*jc});
   adios2::Variable<float> angAx = hdf5IO.DefineVariable<float>(
 	      "angleAxis", {ncth}, {0}, {ncth});
+  adios2::Variable<float> q1a = hdf5IO.DefineVariable<float>(
+	      "q1", {nVoxT}, {js}, {jc});
+  adios2::Variable<float> q2a = hdf5IO.DefineVariable<float>(
+	      "q2", {nVoxT}, {js}, {jc});
+  adios2::Variable<float> q3a = hdf5IO.DefineVariable<float>(
+	      "q3", {nVoxT}, {js}, {jc});
+  adios2::Variable<float> q4a = hdf5IO.DefineVariable<float>(
+	      "q4", {nVoxT}, {js}, {jc});
   adios2::Engine hdf5Writer =
       hdf5IO.Open(hdf5Filename, adios2::Mode::Write);
   hdf5Writer.Put<int>(dimsa, _xyz->nX.data());
@@ -1793,6 +1841,10 @@ void VoxelsCA::WriteToHDF1(const std::string &filename)
   hdf5Writer.Put<float>(IPFmapxa, IPFmapx.data());
   hdf5Writer.Put<float>(IPFmapya, IPFmapy.data());
   hdf5Writer.Put<float>(angAx, cth.data());
+  hdf5Writer.Put<float>(q1a, qr.data());
+  hdf5Writer.Put<float>(q2a, qi.data());
+  hdf5Writer.Put<float>(q3a, qj.data());
+  hdf5Writer.Put<float>(q4a, qk.data());
   hdf5Writer.Close();
   MPI_Barrier(MPI_COMM_WORLD);  
 } // end WriteToHDF1
