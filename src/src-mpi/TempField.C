@@ -11,10 +11,13 @@
 #include <algorithm>
 #include "mpi.h"
 #include <ctime>
+<<<<<<< HEAD
 #include <random>
 #include <functional>
 
 
+=======
+>>>>>>> 93a45862a3d653e41cbfc1a72df25a2f243bc5f5
 
 // constructor
 TempField::TempField(Grid &g, Partition & part, BasePlate &bp)
@@ -462,8 +465,12 @@ void TempField::AnalyticTempCurrAct(double tcurr,std::vector<double> & TempOut, 
   T0 = _xyz->T0;
   bmDX = {DelT*bmV,2.7*bmSTD[1],_xyz->layerT};
   double x1 = pow( pow(bmSTD[0],2.0)*pow(bmSTD[1],2.0)*pow(bmSTD[2],2.0),.5);
+<<<<<<< HEAD
   //bmP = T0targ*_xyz->cP*_xyz->rho*pow(2.0,.5)*pow(M_PI,1.5)*x1/DelT;
   bmP=_xyz->bmP;
+=======
+  bmP = T0targ*_xyz->cP*_xyz->rho*pow(2.0,.5)*pow(M_PI,1.5)*x1/DelT;
+>>>>>>> 93a45862a3d653e41cbfc1a72df25a2f243bc5f5
   rcut = pow( -2* pow(*std::min_element(bmSTD.begin(),bmSTD.end()),2.0)*log(.001),.5);
   Ci = bmEta*bmP*DelT/(_xyz->rho*_xyz->cP*pow(2.0,.5)*pow(M_PI,1.5));
   
